@@ -1,0 +1,1109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Play Store Scraper</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet" />
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg-0:      #080b0f;
+      --bg-1:      #0d1219;
+      --bg-2:      #121920;
+      --bg-3:      #1a2330;
+      --bg-4:      #1f2d3d;
+      --border:    #1e2d3d;
+      --border-hi: #2a3f55;
+      --amber:     #f59e0b;
+      --amber-dim: #b45309;
+      --amber-glow:#fcd34d;
+      --green:     #10b981;
+      --red:       #ef4444;
+      --blue:      #3b82f6;
+      --text-1:    #e2e8f0;
+      --text-2:    #94a3b8;
+      --text-3:    #64748b;
+      --mono:      'IBM Plex Mono', monospace;
+      --sans:      'IBM Plex Sans', sans-serif;
+    }
+
+    html, body, #root {
+      height: 100%;
+      background: var(--bg-0);
+      color: var(--text-1);
+      font-family: var(--sans);
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    /* ── Scrollbar ─────────────────────────────────────────────────────────── */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: var(--bg-1); }
+    ::-webkit-scrollbar-thumb { background: var(--border-hi); border-radius: 3px; }
+
+    /* ── Layout ────────────────────────────────────────────────────────────── */
+    .app {
+      min-height: 100vh;
+      display: grid;
+      grid-template-rows: 56px 1fr;
+    }
+
+    /* ── Header ────────────────────────────────────────────────────────────── */
+    .header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 0 24px;
+      background: var(--bg-1);
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .header-icon {
+      width: 28px; height: 28px;
+      background: var(--amber);
+      border-radius: 6px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 15px;
+    }
+    .header-title {
+      font-family: var(--mono);
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--text-1);
+    }
+    .header-sub {
+      font-size: 11px;
+      color: var(--text-3);
+      font-family: var(--mono);
+      margin-left: 4px;
+    }
+    .header-badge {
+      margin-left: auto;
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--amber);
+      border: 1px solid var(--amber-dim);
+      padding: 2px 8px;
+      border-radius: 3px;
+    }
+
+    /* ── Main content ──────────────────────────────────────────────────────── */
+    .main { padding: 32px 24px; max-width: 1200px; margin: 0 auto; width: 100%; }
+
+    /* ── Step indicators ───────────────────────────────────────────────────── */
+    .steps {
+      display: flex;
+      align-items: center;
+      gap: 0;
+      margin-bottom: 36px;
+    }
+    .step {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--text-3);
+    }
+    .step.active { color: var(--amber); }
+    .step.done   { color: var(--green); }
+    .step-num {
+      width: 22px; height: 22px;
+      border-radius: 50%;
+      border: 1px solid currentColor;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 10px;
+    }
+    .step.done .step-num { background: var(--green); border-color: var(--green); color: #000; }
+    .step-line { flex: 1; height: 1px; background: var(--border); margin: 0 12px; max-width: 60px; }
+
+    /* ── Upload zone ───────────────────────────────────────────────────────── */
+    .upload-zone {
+      border: 1px dashed var(--border-hi);
+      border-radius: 8px;
+      background: var(--bg-1);
+      padding: 60px 40px;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color 0.2s, background 0.2s;
+      position: relative;
+    }
+    .upload-zone:hover, .upload-zone.drag-over {
+      border-color: var(--amber);
+      background: var(--bg-2);
+    }
+    .upload-zone input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+    .upload-icon {
+      font-size: 40px;
+      margin-bottom: 16px;
+      opacity: 0.6;
+    }
+    .upload-title {
+      font-family: var(--mono);
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--text-1);
+      margin-bottom: 8px;
+    }
+    .upload-sub { color: var(--text-3); font-size: 12px; margin-bottom: 4px; }
+    .upload-req {
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--amber-dim);
+      margin-top: 12px;
+    }
+    .file-selected {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 14px 20px;
+      background: var(--bg-2);
+      border: 1px solid var(--border-hi);
+      border-radius: 8px;
+      margin-top: 16px;
+    }
+    .file-icon { font-size: 24px; }
+    .file-name { font-family: var(--mono); font-size: 13px; color: var(--text-1); }
+    .file-size { font-size: 11px; color: var(--text-3); margin-top: 2px; }
+    .file-remove {
+      margin-left: auto;
+      background: none;
+      border: none;
+      color: var(--text-3);
+      cursor: pointer;
+      font-size: 16px;
+      padding: 4px;
+      border-radius: 4px;
+      transition: color 0.2s;
+    }
+    .file-remove:hover { color: var(--red); }
+
+    /* ── Buttons ───────────────────────────────────────────────────────────── */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 20px;
+      border-radius: 6px;
+      font-family: var(--mono);
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: all 0.15s;
+      border: 1px solid transparent;
+    }
+    .btn-primary {
+      background: var(--amber);
+      color: #000;
+      border-color: var(--amber);
+    }
+    .btn-primary:hover { background: var(--amber-glow); }
+    .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
+    .btn-secondary {
+      background: transparent;
+      color: var(--text-2);
+      border-color: var(--border-hi);
+    }
+    .btn-secondary:hover { border-color: var(--text-2); color: var(--text-1); }
+    .btn-download {
+      background: var(--green);
+      color: #000;
+      border-color: var(--green);
+    }
+    .btn-download:hover { filter: brightness(1.1); }
+
+    .btn-row {
+      display: flex;
+      gap: 12px;
+      margin-top: 24px;
+    }
+
+    /* ── Progress view ─────────────────────────────────────────────────────── */
+    .progress-view { display: flex; flex-direction: column; gap: 24px; }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 12px;
+    }
+    .stat-card {
+      background: var(--bg-1);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px;
+    }
+    .stat-label {
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--text-3);
+      margin-bottom: 8px;
+    }
+    .stat-value {
+      font-family: var(--mono);
+      font-size: 26px;
+      font-weight: 600;
+      color: var(--text-1);
+    }
+    .stat-value.amber { color: var(--amber); }
+    .stat-value.green { color: var(--green); }
+    .stat-value.red   { color: var(--red); }
+    .stat-value.blue  { color: var(--blue); }
+
+    /* ── Progress bar ──────────────────────────────────────────────────────── */
+    .progress-section {
+      background: var(--bg-1);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 20px;
+    }
+    .progress-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+    .progress-label {
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--text-3);
+    }
+    .progress-pct {
+      font-family: var(--mono);
+      font-size: 13px;
+      color: var(--amber);
+    }
+    .progress-track {
+      height: 6px;
+      background: var(--bg-3);
+      border-radius: 3px;
+      overflow: hidden;
+    }
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--amber-dim), var(--amber));
+      border-radius: 3px;
+      transition: width 0.4s ease;
+      position: relative;
+    }
+    .progress-fill::after {
+      content: '';
+      position: absolute;
+      right: 0; top: 0; bottom: 0;
+      width: 20px;
+      background: linear-gradient(90deg, transparent, rgba(252,211,77,0.6));
+      animation: shimmer 1s infinite;
+    }
+    @keyframes shimmer { 0%,100%{opacity:0.3} 50%{opacity:1} }
+    .progress-eta {
+      margin-top: 8px;
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--text-3);
+    }
+
+    /* ── Live log ──────────────────────────────────────────────────────────── */
+    .log-section {
+      background: var(--bg-1);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    .log-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 16px;
+      border-bottom: 1px solid var(--border);
+      background: var(--bg-0);
+    }
+    .log-title {
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--text-3);
+    }
+    .log-pulse {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-family: var(--mono);
+      font-size: 10px;
+      color: var(--green);
+    }
+    .pulse-dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: var(--green);
+      animation: pulse 1.2s infinite;
+    }
+    @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.4;transform:scale(0.8)} }
+    .log-body {
+      height: 240px;
+      overflow-y: auto;
+      padding: 12px;
+      font-family: var(--mono);
+      font-size: 11px;
+      line-height: 1.8;
+    }
+    .log-entry { display: flex; gap: 10px; }
+    .log-idx { color: var(--text-3); min-width: 48px; }
+    .log-company { color: var(--text-2); flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .log-status-matched { color: var(--green); }
+    .log-status-no_app  { color: var(--red); }
+    .log-status-failed  { color: var(--amber-dim); }
+    .log-msg { color: var(--text-3); font-size: 10px; max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+    /* ── Results view ──────────────────────────────────────────────────────── */
+    .results-view { display: flex; flex-direction: column; gap: 20px; }
+
+    .results-toolbar {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .search-box {
+      flex: 1;
+      min-width: 220px;
+      position: relative;
+    }
+    .search-box input {
+      width: 100%;
+      padding: 9px 12px 9px 36px;
+      background: var(--bg-1);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text-1);
+      font-family: var(--mono);
+      font-size: 12px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .search-box input:focus { border-color: var(--amber-dim); }
+    .search-box input::placeholder { color: var(--text-3); }
+    .search-icon {
+      position: absolute;
+      left: 10px; top: 50%;
+      transform: translateY(-50%);
+      color: var(--text-3);
+      font-size: 14px;
+      pointer-events: none;
+    }
+    .filter-select {
+      padding: 9px 32px 9px 12px;
+      background: var(--bg-1);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text-1);
+      font-family: var(--mono);
+      font-size: 12px;
+      outline: none;
+      cursor: pointer;
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 10px center;
+      transition: border-color 0.2s;
+    }
+    .filter-select:focus { border-color: var(--amber-dim); }
+
+    /* ── Table ─────────────────────────────────────────────────────────────── */
+    .table-wrap {
+      background: var(--bg-1);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    .table-scroll { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; }
+    thead tr { background: var(--bg-0); }
+    th {
+      padding: 10px 14px;
+      text-align: left;
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--text-3);
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+    }
+    td {
+      padding: 10px 14px;
+      font-size: 12px;
+      color: var(--text-2);
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+      max-width: 220px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    tr:last-child td { border-bottom: none; }
+    tbody tr:hover td { background: var(--bg-2); }
+
+    .cell-company { color: var(--text-1); font-weight: 500; }
+    .cell-app {
+      font-family: var(--mono);
+      font-size: 11px;
+    }
+    .cell-noapp { color: var(--text-3); font-style: italic; }
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 3px;
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: 0.05em;
+    }
+    .badge-android { background: rgba(16,185,129,0.12); color: var(--green); }
+    .badge-noapp   { background: rgba(100,116,139,0.12); color: var(--text-3); }
+    .badge-installs { background: rgba(245,158,11,0.12); color: var(--amber); }
+    .badge-rating  { background: rgba(59,130,246,0.12); color: var(--blue); }
+
+    /* ── Pagination ────────────────────────────────────────────────────────── */
+    .pagination {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 16px;
+      border-top: 1px solid var(--border);
+    }
+    .page-info {
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--text-3);
+    }
+    .page-controls { display: flex; gap: 6px; }
+    .page-btn {
+      width: 30px; height: 30px;
+      display: flex; align-items: center; justify-content: center;
+      background: var(--bg-2);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      color: var(--text-2);
+      cursor: pointer;
+      font-family: var(--mono);
+      font-size: 11px;
+      transition: all 0.15s;
+    }
+    .page-btn:hover:not(:disabled) { border-color: var(--amber-dim); color: var(--amber); }
+    .page-btn.active { background: var(--amber); color: #000; border-color: var(--amber); }
+    .page-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+
+    /* ── Empty/error states ────────────────────────────────────────────────── */
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+      color: var(--text-3);
+      font-family: var(--mono);
+      font-size: 12px;
+    }
+    .empty-icon { font-size: 36px; margin-bottom: 12px; opacity: 0.4; }
+
+    .error-banner {
+      background: rgba(239,68,68,0.08);
+      border: 1px solid rgba(239,68,68,0.3);
+      border-radius: 8px;
+      padding: 14px 18px;
+      font-family: var(--mono);
+      font-size: 12px;
+      color: var(--red);
+    }
+
+    /* ── Done banner ───────────────────────────────────────────────────────── */
+    .done-banner {
+      background: rgba(16,185,129,0.07);
+      border: 1px solid rgba(16,185,129,0.25);
+      border-radius: 8px;
+      padding: 16px 20px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    .done-icon { font-size: 24px; }
+    .done-text { flex: 1; }
+    .done-title {
+      font-family: var(--mono);
+      font-size: 13px;
+      color: var(--green);
+      font-weight: 600;
+    }
+    .done-sub {
+      font-size: 11px;
+      color: var(--text-3);
+      margin-top: 3px;
+      font-family: var(--mono);
+    }
+  </style>
+</head>
+
+<body>
+  <div id="root"></div>
+
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <script type="text/babel">
+    const { useState, useEffect, useRef, useCallback } = React;
+
+    /* ── Utilities ──────────────────────────────────────────────────────────── */
+    const fmtTime = (s) => {
+      if (s == null) return '—';
+      if (s < 60) return `${s}s`;
+      const m = Math.floor(s / 60), sec = s % 60;
+      return `${m}m ${sec}s`;
+    };
+
+    /* ── API ────────────────────────────────────────────────────────────────── */
+    const API = {
+      async uploadCSV(file) {
+        const fd = new FormData();
+        fd.append('file', file);
+        const res = await fetch('/api/jobs', { method: 'POST', body: fd });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({ detail: res.statusText }));
+          throw new Error(err.detail || 'Upload failed');
+        }
+        return res.json();
+      },
+      async getStatus(jobId) {
+        const res = await fetch(`/api/jobs/${jobId}/status`);
+        if (!res.ok) throw new Error('Status fetch failed');
+        return res.json();
+      },
+      async getResults(jobId, { page = 1, pageSize = 50, search = '', category = '', matchStatus = '' } = {}) {
+        const p = new URLSearchParams({ page, page_size: pageSize });
+        if (search)      p.set('search', search);
+        if (category)    p.set('category', category);
+        if (matchStatus) p.set('match_status', matchStatus);
+        const res = await fetch(`/api/jobs/${jobId}/results?${p}`);
+        if (!res.ok) throw new Error('Results fetch failed');
+        return res.json();
+      },
+    };
+
+    /* ── Step Indicator ─────────────────────────────────────────────────────── */
+    function Steps({ current }) {
+      const steps = ['Upload', 'Scraping', 'Results'];
+      return (
+        <div className="steps">
+          {steps.map((label, i) => {
+            const idx = i + 1;
+            const isDone = current > idx;
+            const isActive = current === idx;
+            return (
+              <React.Fragment key={label}>
+                <div className={`step ${isDone ? 'done' : isActive ? 'active' : ''}`}>
+                  <div className="step-num">
+                    {isDone ? '✓' : idx}
+                  </div>
+                  {label}
+                </div>
+                {i < steps.length - 1 && <div className="step-line" />}
+              </React.Fragment>
+            );
+          })}
+        </div>
+      );
+    }
+
+    /* ── Upload View ────────────────────────────────────────────────────────── */
+    function UploadView({ onJobStarted }) {
+      const [file, setFile] = useState(null);
+      const [dragOver, setDragOver] = useState(false);
+      const [uploading, setUploading] = useState(false);
+      const [error, setError] = useState('');
+
+      const handleFile = (f) => {
+        if (!f?.name.endsWith('.csv')) { setError('Please select a .csv file'); return; }
+        setFile(f);
+        setError('');
+      };
+
+      const handleDrop = (e) => {
+        e.preventDefault();
+        setDragOver(false);
+        const f = e.dataTransfer.files[0];
+        if (f) handleFile(f);
+      };
+
+      const handleStart = async () => {
+        if (!file) return;
+        setUploading(true);
+        setError('');
+        try {
+          const job = await API.uploadCSV(file);
+          onJobStarted(job);
+        } catch (err) {
+          setError(err.message);
+          setUploading(false);
+        }
+      };
+
+      return (
+        <div>
+          <div
+            className={`upload-zone ${dragOver ? 'drag-over' : ''}`}
+            onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+            onDragLeave={() => setDragOver(false)}
+            onDrop={handleDrop}
+          >
+            <input type="file" accept=".csv" onChange={(e) => handleFile(e.target.files[0])} />
+            <div className="upload-icon">📂</div>
+            <div className="upload-title">Drop your CSV here</div>
+            <div className="upload-sub">or click to browse</div>
+            <div className="upload-req">Required columns: Company Name · Website</div>
+          </div>
+
+          {file && (
+            <div className="file-selected">
+              <div className="file-icon">📄</div>
+              <div>
+                <div className="file-name">{file.name}</div>
+                <div className="file-size">{(file.size / 1024).toFixed(1)} KB</div>
+              </div>
+              <button className="file-remove" onClick={() => setFile(null)}>✕</button>
+            </div>
+          )}
+
+          {error && <div className="error-banner" style={{ marginTop: 16 }}>{error}</div>}
+
+          <div className="btn-row">
+            <button
+              className="btn btn-primary"
+              disabled={!file || uploading}
+              onClick={handleStart}
+            >
+              {uploading ? '⏳ Uploading…' : '⚡ Start Scraping'}
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    /* ── Progress View ──────────────────────────────────────────────────────── */
+    function ProgressView({ job, onComplete }) {
+      const [stats, setStats] = useState({
+        processed: 0, matched: 0, no_app: 0, failed: 0,
+        percent: 0, eta: null, elapsed: 0
+      });
+      const [log, setLog] = useState([]);
+      const [done, setDone] = useState(false);
+      const [jobError, setJobError] = useState('');
+      const logRef = useRef(null);
+      const esRef = useRef(null);
+      const startRef = useRef(Date.now());
+      const timerRef = useRef(null);
+
+      useEffect(() => {
+        // Elapsed timer
+        timerRef.current = setInterval(() => {
+          setStats(s => ({ ...s, elapsed: Math.floor((Date.now() - startRef.current) / 1000) }));
+        }, 1000);
+
+        // SSE
+        const es = new EventSource(`/api/jobs/${job.job_id}/progress`);
+        esRef.current = es;
+
+        es.onmessage = (e) => {
+          const ev = JSON.parse(e.data);
+          if (ev.type === 'ping' || ev.type === 'init') return;
+
+          if (ev.type === 'row') {
+            setStats(s => {
+              const processed = s.processed + 1;
+              const total = job.total;
+              const pct = total ? Math.round((processed / total) * 100) : 0;
+              return {
+                ...s,
+                processed,
+                matched: ev.status === 'matched'  ? s.matched + 1 : s.matched,
+                no_app:  ev.status === 'no_app'   ? s.no_app  + 1 : s.no_app,
+                failed:  ev.status === 'failed'   ? s.failed  + 1 : s.failed,
+                percent: pct,
+              };
+            });
+
+            setLog(l => {
+              const entry = {
+                idx:     ev.index + 1,
+                company: ev.company,
+                status:  ev.status,
+                app:     ev.app_name,
+                msg:     ev.message,
+              };
+              const next = [entry, ...l].slice(0, 200);
+              return next;
+            });
+          }
+
+          if (ev.type === 'done') {
+            clearInterval(timerRef.current);
+            setDone(true);
+            setStats(s => ({ ...s, percent: 100, eta: 0, elapsed: Math.floor((Date.now() - startRef.current) / 1000) }));
+            es.close();
+          }
+
+          if (ev.type === 'error') {
+            clearInterval(timerRef.current);
+            setJobError(ev.message || 'Unknown error');
+            es.close();
+          }
+        };
+
+        es.onerror = () => {
+          clearInterval(timerRef.current);
+          es.close();
+        };
+
+        return () => {
+          clearInterval(timerRef.current);
+          es.close();
+        };
+      }, [job.job_id, job.total]);
+
+      // Auto-scroll log
+      useEffect(() => {
+        if (logRef.current) {
+          logRef.current.scrollTop = 0;
+        }
+      }, [log.length]);
+
+      return (
+        <div className="progress-view">
+          {/* Stats */}
+          <div className="stats-grid">
+            <div className="stat-card">
+              <div className="stat-label">Processed</div>
+              <div className="stat-value amber">{stats.processed}<span style={{fontSize:14,color:'var(--text-3)'}}> / {job.total}</span></div>
+            </div>
+            <div className="stat-card">
+              <div className="stat-label">Matched</div>
+              <div className="stat-value green">{stats.matched}</div>
+            </div>
+            <div className="stat-card">
+              <div className="stat-label">No App</div>
+              <div className="stat-value red">{stats.no_app}</div>
+            </div>
+            <div className="stat-card">
+              <div className="stat-label">Failed</div>
+              <div className="stat-value" style={{color:'var(--text-3)'}}>{stats.failed}</div>
+            </div>
+            <div className="stat-card">
+              <div className="stat-label">Elapsed</div>
+              <div className="stat-value blue" style={{fontSize:18}}>{fmtTime(stats.elapsed)}</div>
+            </div>
+          </div>
+
+          {/* Progress bar */}
+          <div className="progress-section">
+            <div className="progress-header">
+              <span className="progress-label">Progress</span>
+              <span className="progress-pct">{stats.percent}%</span>
+            </div>
+            <div className="progress-track">
+              <div className="progress-fill" style={{ width: `${stats.percent}%` }} />
+            </div>
+            {!done && stats.processed > 0 && (
+              <div className="progress-eta">
+                {stats.elapsed > 0 && stats.processed > 0
+                  ? `~${fmtTime(Math.round(stats.elapsed / stats.processed * (job.total - stats.processed)))} remaining`
+                  : 'Calculating ETA…'}
+              </div>
+            )}
+          </div>
+
+          {/* Error */}
+          {jobError && <div className="error-banner">⚠ Job error: {jobError}</div>}
+
+          {/* Done banner */}
+          {done && (
+            <div className="done-banner">
+              <div className="done-icon">✅</div>
+              <div className="done-text">
+                <div className="done-title">Scrape complete</div>
+                <div className="done-sub">{stats.matched} matched · {stats.no_app} no app · completed in {fmtTime(stats.elapsed)}</div>
+              </div>
+              <button className="btn btn-primary" onClick={onComplete}>View Results →</button>
+            </div>
+          )}
+
+          {/* Live log */}
+          <div className="log-section">
+            <div className="log-header">
+              <span className="log-title">Live Feed</span>
+              {!done && (
+                <span className="log-pulse">
+                  <span className="pulse-dot" />
+                  Running
+                </span>
+              )}
+            </div>
+            <div className="log-body" ref={logRef}>
+              {log.length === 0 && (
+                <div style={{ color: 'var(--text-3)', textAlign: 'center', paddingTop: 20 }}>
+                  Waiting for first result…
+                </div>
+              )}
+              {log.map((entry, i) => (
+                <div className="log-entry" key={i}>
+                  <span className="log-idx">#{entry.idx}</span>
+                  <span className="log-company">{entry.company}</span>
+                  <span className={`log-status-${entry.status}`}>
+                    {entry.status === 'matched' ? '✓' : entry.status === 'no_app' ? '✗' : '⚠'}
+                  </span>
+                  <span className="log-msg">{entry.app !== 'No App' ? entry.app : entry.msg}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    /* ── Results View ───────────────────────────────────────────────────────── */
+    function ResultsView({ job, onReset }) {
+      const [data, setData] = useState({ rows: [], total: 0, pages: 1, categories: [] });
+      const [page, setPage] = useState(1);
+      const [search, setSearch] = useState('');
+      const [category, setCategory] = useState('');
+      const [matchStatus, setMatchStatus] = useState('');
+      const [loading, setLoading] = useState(false);
+      const debounceRef = useRef(null);
+
+      const fetchResults = useCallback(async (params) => {
+        setLoading(true);
+        try {
+          const res = await API.getResults(job.job_id, params);
+          setData(res);
+        } catch (e) {
+          console.error(e);
+        } finally {
+          setLoading(false);
+        }
+      }, [job.job_id]);
+
+      useEffect(() => {
+        clearTimeout(debounceRef.current);
+        debounceRef.current = setTimeout(() => {
+          fetchResults({ page, pageSize: 50, search, category, matchStatus });
+        }, 300);
+      }, [page, search, category, matchStatus, fetchResults]);
+
+      const handleSearch = (v) => { setSearch(v); setPage(1); };
+      const handleCategory = (v) => { setCategory(v); setPage(1); };
+      const handleStatus = (v) => { setMatchStatus(v); setPage(1); };
+
+      const downloadUrl = `/api/jobs/${job.job_id}/download`;
+
+      const pageNums = (() => {
+        const total = data.pages;
+        const p = page;
+        let pages = [];
+        if (total <= 7) {
+          pages = Array.from({ length: total }, (_, i) => i + 1);
+        } else {
+          pages = [1];
+          if (p > 3) pages.push('…');
+          for (let i = Math.max(2, p - 1); i <= Math.min(total - 1, p + 1); i++) pages.push(i);
+          if (p < total - 2) pages.push('…');
+          pages.push(total);
+        }
+        return pages;
+      })();
+
+      return (
+        <div className="results-view">
+          {/* Toolbar */}
+          <div className="results-toolbar">
+            <div className="search-box">
+              <span className="search-icon">🔍</span>
+              <input
+                placeholder="Search company or app…"
+                value={search}
+                onChange={(e) => handleSearch(e.target.value)}
+              />
+            </div>
+            <select className="filter-select" value={category} onChange={(e) => handleCategory(e.target.value)}>
+              <option value="">All categories</option>
+              {data.categories.map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
+            <select className="filter-select" value={matchStatus} onChange={(e) => handleStatus(e.target.value)}>
+              <option value="">All results</option>
+              <option value="matched">Matched only</option>
+              <option value="no_app">No App only</option>
+            </select>
+            <a href={downloadUrl} download>
+              <button className="btn btn-download">⬇ Download CSV</button>
+            </a>
+            <button className="btn btn-secondary" onClick={onReset}>New Job</button>
+          </div>
+
+          {/* Table */}
+          <div className="table-wrap">
+            <div className="table-scroll">
+              {loading && <div style={{ padding: '12px 16px', fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--text-3)' }}>Loading…</div>}
+              {!loading && data.rows.length === 0 && (
+                <div className="empty-state">
+                  <div className="empty-icon">🔎</div>
+                  No results match your filters.
+                </div>
+              )}
+              {!loading && data.rows.length > 0 && (
+                <table>
+                  <thead>
+                    <tr>
+                      <th>#</th>
+                      <th>Company</th>
+                      <th>App Name</th>
+                      <th>Platform</th>
+                      <th>Installs</th>
+                      <th>Rating</th>
+                      <th>Category</th>
+                      <th>Website</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {data.rows.map((row, i) => {
+                      const isNoApp = row['App Name'] === 'No App' || !row['App Name'];
+                      return (
+                        <tr key={i}>
+                          <td style={{ color: 'var(--text-3)', fontFamily: 'var(--mono)', fontSize: 10 }}>
+                            {(page - 1) * 50 + i + 1}
+                          </td>
+                          <td className="cell-company" title={row['Company Name']}>{row['Company Name']}</td>
+                          <td className={`cell-app ${isNoApp ? 'cell-noapp' : ''}`} title={row['App Name']}>
+                            {row['App Name'] || '—'}
+                          </td>
+                          <td>
+                            {row['Platform'] && row['Platform'] !== 'No App' ? (
+                              <span className="badge badge-android">{row['Platform']}</span>
+                            ) : (
+                              <span className="badge badge-noapp">—</span>
+                            )}
+                          </td>
+                          <td>
+                            {row['Installs (Range)'] && row['Installs (Range)'] !== 'No App' ? (
+                              <span className="badge badge-installs">{row['Installs (Range)']}</span>
+                            ) : '—'}
+                          </td>
+                          <td>
+                            {row['Rating'] && row['Rating'] !== 'No App' ? (
+                              <span className="badge badge-rating">⭐ {row['Rating']}</span>
+                            ) : '—'}
+                          </td>
+                          <td title={row['Category']}>
+                            {row['Category'] && row['Category'] !== 'No App' ? row['Category'] : '—'}
+                          </td>
+                          <td>
+                            {row['Website'] ? (
+                              <a href={row['Website'].startsWith('http') ? row['Website'] : `https://${row['Website']}`}
+                                 target="_blank" rel="noopener"
+                                 style={{ color: 'var(--amber-dim)', textDecoration: 'none', fontSize: 11 }}
+                                 title={row['Website']}>
+                                ↗ link
+                              </a>
+                            ) : '—'}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              )}
+            </div>
+
+            {/* Pagination */}
+            {data.total > 0 && (
+              <div className="pagination">
+                <span className="page-info">
+                  {((page - 1) * 50) + 1}–{Math.min(page * 50, data.total)} of {data.total.toLocaleString()} results
+                </span>
+                <div className="page-controls">
+                  <button className="page-btn" disabled={page === 1} onClick={() => setPage(p => p - 1)}>‹</button>
+                  {pageNums.map((p, i) =>
+                    p === '…' ? (
+                      <button key={`ellipsis-${i}`} className="page-btn" disabled>…</button>
+                    ) : (
+                      <button
+                        key={p}
+                        className={`page-btn ${page === p ? 'active' : ''}`}
+                        onClick={() => setPage(p)}
+                      >{p}</button>
+                    )
+                  )}
+                  <button className="page-btn" disabled={page === data.pages} onClick={() => setPage(p => p + 1)}>›</button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    /* ── App Root ───────────────────────────────────────────────────────────── */
+    function App() {
+      const [view, setView] = useState('upload');  // upload | progress | results
+      const [job, setJob] = useState(null);
+
+      const handleJobStarted = (jobData) => {
+        setJob(jobData);
+        setView('progress');
+      };
+
+      const handleComplete = () => setView('results');
+
+      const handleReset = () => {
+        setJob(null);
+        setView('upload');
+      };
+
+      const stepNum = view === 'upload' ? 1 : view === 'progress' ? 2 : 3;
+
+      return (
+        <div className="app">
+          <header className="header">
+            <div className="header-icon">▶</div>
+            <div>
+              <span className="header-title">Play Store Scraper</span>
+              <span className="header-sub">// Android App Enrichment Engine</span>
+            </div>
+            <div className="header-badge">v1.0 · Production</div>
+          </header>
+
+          <div className="main">
+            <Steps current={stepNum} />
+
+            {view === 'upload'   && <UploadView onJobStarted={handleJobStarted} />}
+            {view === 'progress' && job && <ProgressView job={job} onComplete={handleComplete} />}
+            {view === 'results'  && job && <ResultsView job={job} onReset={handleReset} />}
+          </div>
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>
